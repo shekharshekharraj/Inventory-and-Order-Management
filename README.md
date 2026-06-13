@@ -8,10 +8,23 @@
 
 | Service | URL |
 |---------|-----|
-| Frontend (Live App) | _Add your Vercel URL here_ |
-| Backend REST API | _Add your Render URL here_ |
-| Interactive API Docs | `{BACKEND_URL}/docs` |
-| Health Check | `{BACKEND_URL}/health` |
+| Frontend (Live App) | https://inventory-and-order-management-kappa.vercel.app |
+| Backend REST API | https://inventory-and-order-management-4gjv.onrender.com |
+| Interactive API Docs | https://inventory-and-order-management-4gjv.onrender.com/docs |
+| Health Check | https://inventory-and-order-management-4gjv.onrender.com/health |
+
+### Docker Hub Images
+
+| Image | URL |
+|-------|-----|
+| Backend | https://hub.docker.com/r/rajshekhar2220/inventory-backend |
+| Frontend | https://hub.docker.com/r/rajshekhar2220/inventory-frontend |
+
+Pull locally:
+```bash
+docker pull rajshekhar2220/inventory-backend:latest
+docker pull rajshekhar2220/inventory-frontend:latest
+```
 
 ---
 
@@ -200,7 +213,7 @@ inventory-management/
 │   └── workflows/ci.yml    # CI: backend tests + frontend build + Docker build
 ├── .env.example
 ├── DEPLOYMENT.md           # Step-by-step free-tier deployment guide
-└── SUBMISSION.md           # Submission checklist with live URLs
+└── README.md
 ```
 
 ---
@@ -221,12 +234,16 @@ inventory-management/
 
 ## Deployment
 
-See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for a full walkthrough using free-tier platforms:
+The application is deployed on free-tier platforms:
 
-- **Database** → [Neon](https://neon.tech) (serverless PostgreSQL)
-- **Backend** → [Render](https://render.com) (uses the included `render.yaml`)
-- **Frontend** → [Vercel](https://vercel.com) (auto-detects Vite)
-- **Docker images** → [Docker Hub](https://hub.docker.com)
+| Component | Platform | URL |
+|-----------|----------|-----|
+| Database | [Neon](https://neon.tech) | Serverless PostgreSQL |
+| Backend | [Render](https://render.com) | https://inventory-and-order-management-4gjv.onrender.com |
+| Frontend | [Vercel](https://vercel.com) | https://inventory-and-order-management-kappa.vercel.app |
+| Docker Images | [Docker Hub](https://hub.docker.com) | `rajshekhar2220/inventory-backend`, `rajshekhar2220/inventory-frontend` |
+
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for a step-by-step walkthrough to reproduce this setup.
 
 ---
 
