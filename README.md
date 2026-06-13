@@ -50,12 +50,13 @@ The architecture reflects patterns I have used in production: a service layer th
 | Layer | Technology | Why |
 |-------|-----------|-----|
 | Backend | Python 3.12, FastAPI | Async-ready, auto-generated OpenAPI docs, type-safe |
-| ORM / Migrations | SQLAlchemy 2.0 | Declarative mapped columns, full type inference |
+| **Database** | **PostgreSQL 16** | Primary data store — ACID transactions, constraints, aggregations |
+| DB Driver | psycopg2 | Native PostgreSQL adapter used by SQLAlchemy |
+| ORM | SQLAlchemy 2.0 | Python layer that maps models to PostgreSQL tables |
 | Validation | Pydantic v2 | Fast, strict schema validation with custom validators |
 | Frontend | React 18 + TypeScript | Component model, strict typing, excellent ecosystem |
 | State / Data Fetching | TanStack Query | Automatic cache invalidation, background refetching |
 | Styling | Tailwind CSS | Utility-first, consistent design tokens, no CSS drift |
-| Database | PostgreSQL 16 | Battle-tested RDBMS, strong ACID guarantees |
 | Containerisation | Docker + Compose | Reproducible builds, single-command startup |
 | CI/CD | GitHub Actions | Automated tests and production build on every push |
 
@@ -79,7 +80,72 @@ The architecture reflects patterns I have used in production: a service layer th
                                                                    :5432
 ```
 
-### Business Rules (enforced at service layer)
+---
+
+## PostgreSQL Database
+
+PostgreSQL is the **primary and only persistent data store** for this application. All product, customer, order, and inventory data lives in PostgreSQL — not in files, not in memory, and not in the frontend.
+
+SQLAlchemy is **not a replacement for PostgreSQL**. It is the Python ORM that sits between FastAPI and PostgreSQL, translating Python objects into SQL queries and back.
+
+```
+FastAPI  →  SQLAlchemy (ORM)  →  psycopg2 (driver)  →  PostgreSQL 16
+```
+
+### Where PostgreSQL runs
+
+| Environment | PostgreSQL instance | Connection |
+|-------------|---------------------|------------|
+| **Local (Docker)** | `postgres:16-alpine` container via `docker-compose.yml` | `postgresql://inventory_user:inventory_pass@db:5432/inventory_db` |
+| **Production** | [Neon](https://neon.tech) serverless PostgreSQL | Set via `DATABASE_URL` on Render |
+
+The backend reads the connection string from the `DATABASE_URL` environment variable — never hardcoded in source code.
+
+### Schema (4 tables)
+
+| Table | Purpose | Key constraints |
+|-------|---------|-----------------|
+| `products` | Product catalog and stock levels | `sku` UNIQUE, `price` NUMERIC(10,2), `stock_quantity` INTEGER |
+| `customers` | Customer records | `email` UNIQUE |
+| `orders` | Order headers (status, total, customer) | FK → `customers.id` |
+| `order_items` | Line items per order | FK → `orders.id`, FK → `products.id` |
+
+Tables are created automatically on startup via SQLAlchemy's `Base.metadata.create_all()`. Sample data is seeded by `backend/seed.py` on first run.
+
+### PostgreSQL features used in this project
+
+| Feature | Where | Why |
+|---------|-------|-----|
+| **ACID transactions** | Order creation in `order_service.py` | Stock reduction and order insert happen atomically — both succeed or both roll back |
+| **UNIQUE constraints** | `products.sku`, `customers.email` | Database-level enforcement even if application checks are bypassed |
+| **Foreign keys** | `orders.customer_id`, `order_items.product_id` | Referential integrity between orders, customers, and products |
+| **NUMERIC type** | `products.price`, `order_items.unit_price` | Exact decimal precision for money — no floating-point rounding errors |
+| **`func.count()` / `func.sum()`** | `dashboard_service.py` | Server-side aggregation for dashboard stats |
+| **`ilike`** | Product and customer search | Case-insensitive search directly in PostgreSQL |
+| **`server_default=func.now()`** | All `created_at` / `updated_at` columns | Timestamps set by PostgreSQL, not Python |
+
+### Connection setup (code)
+
+```python
+# backend/app/core/database.py
+engine = create_engine(settings.database_url, pool_pre_ping=True)  # connects to PostgreSQL
+SessionLocal = sessionmaker(bind=engine)
+
+# backend/requirements.txt
+psycopg2-binary==2.9.10   # PostgreSQL driver
+sqlalchemy==2.0.36        # ORM layer on top of psycopg2
+```
+
+```yaml
+# docker-compose.yml — PostgreSQL runs as its own service
+db:
+  image: postgres:16-alpine
+  ports: ["5432:5432"]
+  volumes: [postgres_data:/var/lib/postgresql/data]
+  healthcheck: pg_isready   # backend waits until PostgreSQL is ready
+```
+
+### Business Rules (enforced at service layer + PostgreSQL)
 
 | Rule | Implementation |
 |------|----------------|
